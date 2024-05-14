@@ -1,0 +1,10 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: thorlabs-mff-fastcs
+  title: thorlabs-mff-fastcs
+  description: FastCS support for the ThorLabs MFF (Motorized Filter Flipper)
+spec:
+  type: documentation
+  lifecycle: experimental
+  owner: group:default/sscc
