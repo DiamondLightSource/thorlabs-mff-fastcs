@@ -32,9 +32,9 @@ class ThorlabsAPTProtocol:
 
     def set_position(self, desired: bool) -> bytes:
         if desired:
-            return b"\x6A\x04\x00\x02\x50\x01"
+            return b"\x6a\x04\x00\x02\x50\x01"
         else:
-            return b"\x6A\x04\x00\x01\x50\x01"
+            return b"\x6a\x04\x00\x01\x50\x01"
 
     def get_info(self) -> bytes:
         return b"\x05\x00\x00\x00\x50\x01"

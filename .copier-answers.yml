@@ -13,4 +13,4 @@ github_org: DiamondLightSource
 package_name: thorlabs_mff_fastcs
 pypi: true
 repo_name: thorlabs-mff-fastcs
-type_checker: mypy
+type_checker: pyright
