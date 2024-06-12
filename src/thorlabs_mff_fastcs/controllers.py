@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Callable
 
 from fastcs.attributes import AttrR, AttrW
@@ -59,6 +61,32 @@ protocol = ThorlabsAPTProtocol()
 
 
 @dataclass
+class ResponseCache:
+    _last_update: datetime | None = None
+    _response: Any = None
+    update_event: asyncio.Event = asyncio.Event()
+
+    def __post_init__(self):
+        self.update_event.set()
+
+    def check_expired(self, time_step):
+        if self._last_update is None:
+            return True
+        delta_t = datetime.now() - self._last_update
+        return delta_t.total_seconds() > time_step
+
+    def update_response(self, response):
+        self._response = response
+        self._last_update = datetime.now()
+
+    def get_response(self):
+        return self._response
+
+
+info_cache = ResponseCache()
+
+
+@dataclass
 class ThorlabsMFFHandlerW:
     cmd: Callable
 
@@ -81,16 +109,45 @@ class ThorlabsMFFHandlerR:
     response_size: int
     response_handler: Callable
     update_period: float = 0.2
+    cache: ResponseCache | None = None
 
     async def update(
         self,
         controller: ThorlabsMFF,
         attr: AttrR,
     ) -> None:
-        response = await controller.conn.send_query(
-            self.cmd(),
-            self.response_size,
-        )
+        if self.cache is not None:
+            read_cache = False
+
+            # Short circuit if expired
+            if self.cache.check_expired(self.update_period):
+                # Wait if an update is in progress
+                if self.cache.update_event.is_set():
+                    self.cache.update_event.clear()
+                else:
+                    await self.cache.update_event.wait()
+                    # Check if updated since
+                    if not self.cache.check_expired(self.update_period):
+                        read_cache = True
+            else:
+                read_cache = True
+
+            if read_cache:
+                response = self.cache.get_response()
+            else:
+                response = await controller.conn.send_query(
+                    self.cmd(),
+                    self.response_size,
+                )
+                self.cache.update_response(response)
+                self.cache.update_event.set()
+
+        else:
+            response = await controller.conn.send_query(
+                self.cmd(),
+                self.response_size,
+            )
+
         response = self.response_handler(response)
         if attr.dtype is bool:
             await attr.set(int(response))
@@ -127,6 +184,7 @@ class ThorlabsMFF(Controller):
             90,
             protocol.read_model,
             update_period=10,
+            cache=info_cache,
         ),
         group="Information",
     )
@@ -137,6 +195,7 @@ class ThorlabsMFF(Controller):
             90,
             protocol.read_type,
             update_period=10,
+            cache=info_cache,
         ),
         group="Information",
     )
@@ -147,6 +206,7 @@ class ThorlabsMFF(Controller):
             90,
             protocol.read_serial_no,
             update_period=10,
+            cache=info_cache,
         ),
         group="Information",
     )
@@ -157,6 +217,7 @@ class ThorlabsMFF(Controller):
             90,
             protocol.read_firmware_v,
             update_period=10,
+            cache=info_cache,
         ),
         group="Information",
     )
@@ -167,6 +228,7 @@ class ThorlabsMFF(Controller):
             90,
             protocol.read_hardware_v,
             update_period=10,
+            cache=info_cache,
         ),
         group="Information",
     )
