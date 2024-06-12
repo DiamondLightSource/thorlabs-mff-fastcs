@@ -11,13 +11,13 @@ classifiers = [
 ]
 description = "FastCS support for the ThorLabs MFF (Motorized Filter Flipper)"
 dependencies = [
-    "FastCS@git+https://github.com/DiamondLightSource/FastCS.git@add-serial-connection",
+    "FastCS@git+https://github.com/DiamondLightSource/FastCS.git",
     "typer",
 ] # Add project dependencies here, e.g. ["click", "numpy"]
 dynamic = ["version"]
 license.file = "LICENSE"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.11"
 
 [project.optional-dependencies]
 dev = [
