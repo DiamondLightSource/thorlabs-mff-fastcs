@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 
 from fastcs.attributes import AttrR, AttrW
 from fastcs.connections.serial_connection import (
@@ -63,24 +64,48 @@ protocol = ThorlabsAPTProtocol()
 @dataclass
 class ResponseCache:
     _last_update: datetime | None = None
-    _response: Any = None
-    update_event: asyncio.Event = asyncio.Event()
+    _response: str | None = None
+    _update_event: asyncio.Event = asyncio.Event()
 
-    def __post_init__(self):
-        self.update_event.set()
+    def __post_init__(self) -> None:
+        self._update_event.set()
 
-    def check_expired(self, time_step):
+    def check_expired(self, time_step: float) -> bool:
         if self._last_update is None:
             return True
         delta_t = datetime.now() - self._last_update
         return delta_t.total_seconds() > time_step
 
-    def update_response(self, response):
+    def update_response(self, response: str) -> None:
         self._response = response
         self._last_update = datetime.now()
 
-    def get_response(self):
-        return self._response
+    async def get_response(
+        self, expiry_period: float, to_await: Callable[[Any], Awaitable[str]], *args
+    ):
+        read_cache = False
+
+        # Immediately short circuit if expired
+        if self.check_expired(expiry_period):
+            # Wait if an update is in progress
+            if self._update_event.is_set():
+                self._update_event.clear()
+            else:
+                await self._update_event.wait()
+                # Check if updated since
+                if not self.check_expired(expiry_period):
+                    read_cache = True
+        else:
+            read_cache = True
+
+        if read_cache:
+            response = self._response
+        else:
+            response = await to_await(*args)
+            self.update_response(response)
+            self._update_event.set()
+
+        return response
 
 
 info_cache = ResponseCache()
@@ -117,31 +142,12 @@ class ThorlabsMFFHandlerR:
         attr: AttrR,
     ) -> None:
         if self.cache is not None:
-            read_cache = False
-
-            # Short circuit if expired
-            if self.cache.check_expired(self.update_period):
-                # Wait if an update is in progress
-                if self.cache.update_event.is_set():
-                    self.cache.update_event.clear()
-                else:
-                    await self.cache.update_event.wait()
-                    # Check if updated since
-                    if not self.cache.check_expired(self.update_period):
-                        read_cache = True
-            else:
-                read_cache = True
-
-            if read_cache:
-                response = self.cache.get_response()
-            else:
-                response = await controller.conn.send_query(
-                    self.cmd(),
-                    self.response_size,
-                )
-                self.cache.update_response(response)
-                self.cache.update_event.set()
-
+            response = await self.cache.get_response(
+                self.update_period,
+                controller.conn.send_query,
+                self.cmd(),
+                self.response_size,
+            )
         else:
             response = await controller.conn.send_query(
                 self.cmd(),
