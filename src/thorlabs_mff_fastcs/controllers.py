@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Any, Callable
+from datetime import datetime
+from typing import Any
 
 from fastcs.attributes import AttrR, AttrW
 from fastcs.connections.serial_connection import (
@@ -59,6 +62,48 @@ protocol = ThorlabsAPTProtocol()
 
 
 @dataclass
+class ResponseCache:
+    _last_update: datetime | None = None
+    _response: str | None = None
+    _update_event: asyncio.Event = asyncio.Event()
+
+    def __post_init__(self) -> None:
+        self._update_event.set()
+
+    def _has_expired(self, time_step: float) -> bool:
+        if self._last_update is None:
+            return True
+        delta_t = datetime.now() - self._last_update
+        return delta_t.total_seconds() > time_step
+
+    def _update_response(self, response: str | None) -> None:
+        self._response = response
+        self._last_update = datetime.now()
+
+    async def get_response(
+        self, expiry_period: float, to_await: Coroutine[Any, Any, str | None]
+    ):
+        # Immediately short circuit if not expired
+        if self._has_expired(expiry_period):
+            # Wait if an update is in progress
+            if self._update_event.is_set():
+                self._update_event.clear()  # Lock
+                response = await to_await
+                self._update_response(response)
+                self._update_event.set()  # Free
+                return response
+            else:
+                await self._update_event.wait()
+
+        response = self._response
+        to_await.close()  # Solves RuntimeWarning: coroutine not awaited
+        return response
+
+
+info_cache = ResponseCache()
+
+
+@dataclass
 class ThorlabsMFFHandlerW:
     cmd: Callable
 
@@ -81,16 +126,27 @@ class ThorlabsMFFHandlerR:
     response_size: int
     response_handler: Callable
     update_period: float = 0.2
+    cache: ResponseCache | None = None
 
     async def update(
         self,
         controller: ThorlabsMFF,
         attr: AttrR,
     ) -> None:
-        response = await controller.conn.send_query(
-            self.cmd(),
-            self.response_size,
-        )
+        if self.cache is not None:
+            response = await self.cache.get_response(
+                self.update_period,
+                controller.conn.send_query(
+                    self.cmd(),
+                    self.response_size,
+                ),
+            )
+        else:
+            response = await controller.conn.send_query(
+                self.cmd(),
+                self.response_size,
+            )
+
         response = self.response_handler(response)
         if attr.dtype is bool:
             await attr.set(int(response))
@@ -127,6 +183,7 @@ class ThorlabsMFF(Controller):
             90,
             protocol.read_model,
             update_period=10,
+            cache=info_cache,
         ),
         group="Information",
     )
@@ -137,6 +194,7 @@ class ThorlabsMFF(Controller):
             90,
             protocol.read_type,
             update_period=10,
+            cache=info_cache,
         ),
         group="Information",
     )
@@ -147,6 +205,7 @@ class ThorlabsMFF(Controller):
             90,
             protocol.read_serial_no,
             update_period=10,
+            cache=info_cache,
         ),
         group="Information",
     )
@@ -157,6 +216,7 @@ class ThorlabsMFF(Controller):
             90,
             protocol.read_firmware_v,
             update_period=10,
+            cache=info_cache,
         ),
         group="Information",
     )
@@ -167,6 +227,7 @@ class ThorlabsMFF(Controller):
             90,
             protocol.read_hardware_v,
             update_period=10,
+            cache=info_cache,
         ),
         group="Information",
     )
