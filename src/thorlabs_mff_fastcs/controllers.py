@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -70,41 +70,33 @@ class ResponseCache:
     def __post_init__(self) -> None:
         self._update_event.set()
 
-    def check_expired(self, time_step: float) -> bool:
+    def _has_expired(self, time_step: float) -> bool:
         if self._last_update is None:
             return True
         delta_t = datetime.now() - self._last_update
         return delta_t.total_seconds() > time_step
 
-    def update_response(self, response: str) -> None:
+    def _update_response(self, response: str | None) -> None:
         self._response = response
         self._last_update = datetime.now()
 
     async def get_response(
-        self, expiry_period: float, to_await: Callable[[Any], Awaitable[str]], *args
+        self, expiry_period: float, to_await: Coroutine[Any, Any, str | None]
     ):
-        read_cache = False
-
-        # Immediately short circuit if expired
-        if self.check_expired(expiry_period):
+        # Immediately short circuit if not expired
+        if self._has_expired(expiry_period):
             # Wait if an update is in progress
             if self._update_event.is_set():
-                self._update_event.clear()
+                self._update_event.clear()  # Lock
+                response = await to_await
+                self._update_response(response)
+                self._update_event.set()  # Free
+                return response
             else:
                 await self._update_event.wait()
-                # Check if updated since
-                if not self.check_expired(expiry_period):
-                    read_cache = True
-        else:
-            read_cache = True
 
-        if read_cache:
-            response = self._response
-        else:
-            response = await to_await(*args)
-            self.update_response(response)
-            self._update_event.set()
-
+        response = self._response
+        to_await.close()  # Solves RuntimeWarning: coroutine not awaited
         return response
 
 
@@ -144,9 +136,10 @@ class ThorlabsMFFHandlerR:
         if self.cache is not None:
             response = await self.cache.get_response(
                 self.update_period,
-                controller.conn.send_query,
-                self.cmd(),
-                self.response_size,
+                controller.conn.send_query(
+                    self.cmd(),
+                    self.response_size,
+                ),
             )
         else:
             response = await controller.conn.send_query(
