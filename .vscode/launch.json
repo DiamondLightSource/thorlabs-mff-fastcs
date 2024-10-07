@@ -18,6 +18,26 @@
                 // Enable break on exception when debugging tests (see: tests/conftest.py)
                 "PYTEST_RAISE": "1",
             },
+        },
+        {
+            "name": "Debug With Device",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "module": "thorlabs_mff_fastcs",
+            "purpose": [
+                "debug-test"
+            ],
+            "console": "integratedTerminal",
+            "args": [
+                "ioc",
+                "BL01C-EA-FLIP-01",
+                "/dev/serial/by-id/usb-Thorlabs_APT_Filter_Flipper_37007189-if00-port0",
+                "--baud",
+                "115200",
+                "--output-path",
+                "."
+            ],
         }
     ]
 }
