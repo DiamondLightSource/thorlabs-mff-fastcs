@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import signal
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from datetime import datetime
@@ -113,11 +115,15 @@ class ThorlabsMFFHandlerW:
         attr: AttrW,
         value: Any,
     ) -> None:
-        if attr.dtype is bool:
-            value = int(value)
-        await controller.conn.send_command(
-            self.cmd(value),
-        )
+        try:
+            if attr.dtype is bool:
+                value = int(value)
+            await controller.conn.send_command(
+                self.cmd(value),
+            )
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            os.kill(os.getpid(), signal.SIGTERM)
 
 
 @dataclass
@@ -133,25 +139,29 @@ class ThorlabsMFFHandlerR:
         controller: ThorlabsMFF,
         attr: AttrR,
     ) -> None:
-        if self.cache is not None:
-            response = await self.cache.get_response(
-                self.update_period,
-                controller.conn.send_query(
+        try:
+            if self.cache is not None:
+                response = await self.cache.get_response(
+                    self.update_period,
+                    controller.conn.send_query(
+                        self.cmd(),
+                        self.response_size,
+                    ),
+                )
+            else:
+                response = await controller.conn.send_query(
                     self.cmd(),
                     self.response_size,
-                ),
-            )
-        else:
-            response = await controller.conn.send_query(
-                self.cmd(),
-                self.response_size,
-            )
+                )
 
-        response = self.response_handler(response)
-        if attr.dtype is bool:
-            await attr.set(int(response))
-        else:
-            await attr.set(response)
+            response = self.response_handler(response)
+            if attr.dtype is bool:
+                await attr.set(int(response))
+            else:
+                await attr.set(response)
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            os.kill(os.getpid(), signal.SIGTERM)
 
 
 class ThorlabsMFF(Controller):
