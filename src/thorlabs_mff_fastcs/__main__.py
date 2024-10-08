@@ -3,7 +3,6 @@ from typing import Optional
 
 import typer
 from fastcs.connections.serial_connection import SerialConnectionSettings
-from fastcs.mapping import Mapping
 
 from thorlabs_mff_fastcs.controllers import (
     ThorlabsMFF,
@@ -58,11 +57,9 @@ def ioc(
     """
     from fastcs.backends.epics.backend import EpicsBackend, EpicsGUIOptions
 
-    mapping = Mapping(get_controller(port, baud))
-
-    backend = EpicsBackend(mapping, pv_prefix)
-    backend.create_gui(EpicsGUIOptions(output_path / "output.bob"))
-    backend.get_ioc().run()
+    backend = EpicsBackend(get_controller(port, baud), pv_prefix)
+    backend.create_gui(EpicsGUIOptions(output_path / "index.bob"))
+    backend.run()
 
 
 def get_controller(port: str, baud: int) -> ThorlabsMFF:
