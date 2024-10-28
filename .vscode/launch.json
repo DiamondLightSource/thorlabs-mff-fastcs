@@ -29,6 +29,10 @@
                 "debug-test"
             ],
             "console": "integratedTerminal",
+            "env": {
+                // Enable break on exception when debugging tests (see: tests/conftest.py)
+                "TANGO_HOST": "localhost:10000",
+            },
             "args": [
                 "ioc",
                 "BL01C-EA-FLIP-01",
