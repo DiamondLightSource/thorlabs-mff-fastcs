@@ -30,7 +30,6 @@
             ],
             "console": "integratedTerminal",
             "env": {
-                // Enable break on exception when debugging tests (see: tests/conftest.py)
                 "TANGO_HOST": "localhost:10000",
             },
             "args": [
