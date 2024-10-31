@@ -15,6 +15,7 @@ from fastcs.connections.serial_connection import (
 )
 from fastcs.controller import Controller
 from fastcs.datatypes import Bool, Int, String
+from fastcs.wrappers import command
 
 
 @dataclass
@@ -23,11 +24,8 @@ class ThorlabsMFFSettings:
 
 
 class ThorlabsAPTProtocol:
-    def set_identify(self, action: bool) -> bytes:
-        if action:
-            return b"\x23\x02\x00\x00\x50\x01"
-        else:
-            return b""
+    def set_identify(self):
+        return b"\x23\x02\x00\x00\x50\x01"
 
     def get_position(self) -> bytes:
         return b"\x29\x04\x00\x00\x50\x01"
@@ -66,7 +64,7 @@ protocol = ThorlabsAPTProtocol()
 @dataclass
 class ResponseCache:
     _last_update: datetime | None = None
-    _response: str | None = None
+    _response: bytes | None = None
     _update_event: asyncio.Event = asyncio.Event()
 
     def __post_init__(self) -> None:
@@ -78,12 +76,12 @@ class ResponseCache:
         delta_t = datetime.now() - self._last_update
         return delta_t.total_seconds() > time_step
 
-    def _update_response(self, response: str | None) -> None:
+    def _update_response(self, response: bytes | None) -> None:
         self._response = response
         self._last_update = datetime.now()
 
     async def get_response(
-        self, expiry_period: float, to_await: Coroutine[Any, Any, str | None]
+        self, expiry_period: float, to_await: Coroutine[Any, Any, bytes | None]
     ):
         # Immediately short circuit if not expired
         if self._has_expired(expiry_period):
@@ -180,12 +178,6 @@ class ThorlabsMFF(Controller):
             protocol.set_position,
         ),
     )
-    blink_LED = AttrW(
-        Bool(znam="Disabled", onam="Enabled"),
-        handler=ThorlabsMFFHandlerW(
-            protocol.set_identify,
-        ),
-    )
     model = AttrR(
         String(),
         handler=ThorlabsMFFHandlerR(
@@ -254,3 +246,9 @@ class ThorlabsMFF(Controller):
 
     async def close(self) -> None:
         await self.conn.close()
+
+    @command()
+    async def blink_led(self) -> None:
+        await self.conn.send_command(
+            protocol.set_identify(),
+        )
