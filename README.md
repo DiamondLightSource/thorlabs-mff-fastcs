@@ -5,7 +5,7 @@
 
 # thorlabs_mff_fastcs
 
-FastCS support for the ThorLabs MFF (Motorized Filter Flipper)
+FastCS support for the [ThorLabs MFF](https://www.thorlabs.com/newgrouppage9.cfm?objectgroup_id=3962) (Motorized Filter Flipper)
 
 This is where you should write a short paragraph that describes what your module does,
 how it does it, and why people should use it.
