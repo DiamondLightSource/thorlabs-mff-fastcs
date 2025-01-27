@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from fastcs.attributes import AttrR, AttrW
-from fastcs.connections.serial_connection import (
+from fastcs.attributes import AttrR, AttrW, Sender, Updater
+from fastcs.connections import (
     SerialConnection,
     SerialConnectionSettings,
 )
@@ -104,7 +104,7 @@ info_cache = ResponseCache()
 
 
 @dataclass
-class ThorlabsMFFHandlerW:
+class ThorlabsMFFHandlerW(Sender):
     cmd: Callable
 
     async def put(
@@ -125,11 +125,11 @@ class ThorlabsMFFHandlerW:
 
 
 @dataclass
-class ThorlabsMFFHandlerR:
+class ThorlabsMFFHandlerR(Updater):
     cmd: Callable
     response_size: int
     response_handler: Callable
-    update_period: float = 0.2
+    update_period: float | None = 0.2
     cache: ResponseCache | None = None
 
     async def update(
@@ -140,7 +140,7 @@ class ThorlabsMFFHandlerR:
         try:
             if self.cache is not None:
                 response = await self.cache.get_response(
-                    self.update_period,
+                    self.update_period if self.update_period else 0.0,
                     controller.conn.send_query(
                         self.cmd(),
                         self.response_size,
@@ -234,7 +234,7 @@ class ThorlabsMFF(Controller):
         group="Information",
     )
 
-    def __init__(self, settings: ThorlabsMFFSettings) -> None:
+    def __init__(self, settings: ThorlabsMFFSettings):
         super().__init__()
 
         self.suffix = ""

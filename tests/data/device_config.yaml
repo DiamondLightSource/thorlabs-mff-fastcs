@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=schema.json
+controller:
+  serial_settings:
+    port: /dev/serial/by-id/usb-Thorlabs_APT_Filter_Flipper_37007189-if00-port0
+    baud: 115200
+transport:
+  - rest:
+      host: localhost
+      port: 8083
+      log_level: info

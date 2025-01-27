@@ -30,13 +30,8 @@
             ],
             "console": "integratedTerminal",
             "args": [
-                "ioc",
-                "BL01C-EA-FLIP-01",
-                "/dev/serial/by-id/usb-Thorlabs_APT_Filter_Flipper_37007189-if00-port0",
-                "--baud",
-                "115200",
-                "--output-path",
-                "."
+                "run",
+                "${workspaceFolder}/tests/data/device_config.yaml",
             ],
         }
     ]

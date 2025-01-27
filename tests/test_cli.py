@@ -1,9 +1,11 @@
-import subprocess
-import sys
+from fastcs.launch import get_controller_schema
+from ruamel.yaml import YAML
 
-from thorlabs_mff_fastcs import __version__
+from thorlabs_mff_fastcs.controllers import ThorlabsMFF
 
 
-def test_cli_version():
-    cmd = [sys.executable, "-m", "thorlabs_mff_fastcs", "--version"]
-    assert subprocess.check_output(cmd).decode().strip() == __version__
+# Add test for schema changes (assess version changes)
+def test_schema(data):
+    ref_schema = YAML(typ="safe").load(data / "schema.json")
+    target_schema = get_controller_schema(ThorlabsMFF)
+    assert target_schema == ref_schema
