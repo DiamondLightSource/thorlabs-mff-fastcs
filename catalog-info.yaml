@@ -5,6 +5,6 @@ metadata:
   title: thorlabs-mff-fastcs
   description: FastCS support for the ThorLabs MFF (Motorized Filter Flipper)
 spec:
-  type: documentation
+  type: service
   lifecycle: experimental
   owner: group:default/sscc
