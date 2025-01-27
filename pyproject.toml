@@ -7,16 +7,17 @@ name = "thorlabs-mff-fastcs"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
 ]
 description = "FastCS support for the ThorLabs MFF (Motorized Filter Flipper)"
-dependencies = [] # Add project dependencies here, e.g. ["click", "numpy"]
+dependencies = [
+    "FastCS",
+    "typer",
+] # Add project dependencies here, e.g. ["click", "numpy"]
 dynamic = ["version"]
 license.file = "LICENSE"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 [project.optional-dependencies]
 dev = [
@@ -32,7 +33,7 @@ dev = [
 ]
 
 [project.scripts]
-thorlabs-mff-fastcs = "thorlabs_mff_fastcs.__main__:main"
+thorlabs-mff-fastcs = "thorlabs_mff_fastcs.__main__:app"
 
 [project.urls]
 GitHub = "https://github.com/DiamondLightSource/thorlabs-mff-fastcs"
@@ -47,7 +48,7 @@ version_file = "src/thorlabs_mff_fastcs/_version.py"
 
 [tool.pyright]
 typeCheckingMode = "standard"
-reportMissingImports = false # Ignore missing stubs in imported modules
+reportMissingImports = false  # Ignore missing stubs in imported modules
 
 [tool.pytest.ini_options]
 # Run pytest with all our checkers, and don't spam us with massive tracebacks on error
